@@ -1,0 +1,126 @@
+'Założenia - makro pobiera załączniki z wskazanej skrzynki odbiorczej i zapisuje je w wcześniej utworzonych folderach ("POBRANE" i "DUBLE") w lokalizacji wskazanej _
+          ' w arkuszu "SET". Załączniki nazywa zgodnie z nazwą adresu skąd pochodzą i porównuje je z już istniejącą bazą adresów. Jeżeli załącznik pochodzi od nowego _
+          ' nadawcy to użytkownik zostanie o tym poinformowany.
+
+Sub Pobierz_załączniki()
+
+    Dim A As MAPIFolder
+    Dim Mes As MailItem
+    Dim myolapp As Outlook.Application
+    Dim Sciezka As String
+    Dim fso As FileSystemObject
+    Dim ZostalyPliki As Boolean
+    Dim Tmp, Tmp2 As String
+    Dim n As Long
+    Dim x, ile, ile2, kto As Variant
+
+    On Error GoTo Koniec
+
+    If Right(Cells(1, 2), 1) = "\" Then
+
+        MsgBox "Sciezka nie moze sie kończyć znakiem ""\"""
+
+        Exit Sub
+
+    End If
+
+    Set fs = CreateObject("Scripting.FileSystemObject")
+
+    Sciezka = ThisWorkbook.Worksheets("SET").Cells(1, 2) & "\" & "POBRANE" 
+    Sciezka2 = ThisWorkbook.Worksheets("SET").Cells(1, 2) & "\" & "DUBLE"
+
+    If Not fs.FolderExists(Sciezka) Then
+
+        MsgBox "Brak folderu POBRANE", vbCritical, "INFO"
+        Exit Sub
+
+    End If
+
+    If Not fs.FolderExists(Sciezka2) Then
+
+        MsgBox "Brak folderu DUBLE", vbCritical, "INFO"
+
+        Exit Sub
+
+    End If
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set myolapp = CreateObject("Outlook.Application")
+
+    ost = ThisWorkbook.Worksheets("BAZA").Range("B65000").End(xlUp).Row 
+
+    MsgBox "Wybierz folder, z którego mają zostać pobrane załączniki.", vbOKOnly, "INFO"
+
+    Set A = myolapp.Explorers.Session.PickFolder
+
+    ile = 0
+    ile2 = 0
+    kto = ""
+
+    For k = 1 To A.Items.Count
+
+        If k > A.Items.Count Then Exit Sub
+
+        Set Mes = A.Items.Item(k)
+
+        For i = 1 To Mes.Attachments.Count
+
+            'Tmp = Sciezka & "\" & i & "_" & Mes.SenderEmailAddress & ".pdf"
+            'Tmp = Sciezka & "\" & Mes.Attachments.Item(i).Filename  
+
+            For d = 2 To ost
+
+                If Mes.SenderEmailAddress = ThisWorkbook.Worksheets("BAZA").Cells(d, 2) Then
+
+                    x = "WB_" & ThisWorkbook.Worksheets("BAZA").Cells(d, 1) & "_" & ThisWorkbook.Worksheets("SET").Cells(2, 2) & "_" & ThisWorkbook.Worksheets("SET").Cells(3, 2)
+                  
+                    ile = ile + 1
+                    GoTo omin
+
+                End If
+
+            Next
+
+                    x = Mes.SenderEmailAddress
+
+                    ile2 = ile2 + 1
+           
+omin:
+
+                Tmp = Sciezka & "\" & x & Right(Mes.Attachments.Item(i).Filename, 4)
+
+                    If fs.FileExists(Tmp) Then
+                    
+                    kto = kto & ", " & x & Right(Mes.Attachments.Item(i).Filename, 4)           
+                    Tmp2 = Sciezka2 & "\" & x & Right(Mes.Attachments.Item(i).Filename, 4)
+                    Tmp2 = Mid(Tmp2, 1, Len(Tmp2) - 4) & "_" & i & Right(Mes.Attachments.Item(i).Filename, 4)
+                    Mes.Attachments.Item(i).SaveAsFile Tmp2
+
+                    GoTo omin2
+
+                    End If
+
+                Mes.Attachments.Item(i).SaveAsFile Tmp
+
+omin2:
+
+        Next
+
+        Mes.UnRead = False
+        Mes.Move A.Folders.Item(1)
+
+        k = k - 1
+
+        If k >= A.Items.Count Then Exit For
+
+    Next
+
+     MsgBox "GOTOWE" & vbCrLf & vbCrLf & "Ilość pobarnych załączników: " & ile + ile2 & vbCrLf & vbCrLf & "Ilość załączników od nieznanych adresatów: " & ile2 & vbCrLf & vbCrLf & "Zdublowane pliki: " & kto, vbOKOnly, "INFO"
+
+Exit Sub
+
+Koniec:
+
+    MsgBox "PRERWANIE DZIAŁANIA", vbCritical, "ERROR"
+
+End Sub
